@@ -27,7 +27,7 @@ pub fn sys_yield() -> isize {
 
 /// get time with second and microsecond
 pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
-    trace!("kernel: sys_get_time");
+    error!("kernel: sys_get_time");
     let us = get_time_us();
     unsafe {
         *ts = TimeVal {
@@ -38,8 +38,41 @@ pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
     0
 }
 
+
+struct TraceReq;
+
+impl TraceReq {
+    const READ_BYTE_FROM_ID: usize = 0;
+    const WRITE_TO_ID: usize = 1;
+    const INQUIRE_CALL_TIME: usize = 2;
+}
+
 // TODO: implement the syscall
 pub fn sys_trace(_trace_request: usize, _id: usize, _data: usize) -> isize {
     trace!("kernel: sys_trace");
-    -1
+    let u8_ptr = _id as *mut u8;
+
+    match _trace_request {
+        TraceReq::READ_BYTE_FROM_ID => {
+            unsafe {u8_ptr.read_volatile() as isize}
+        },
+        TraceReq::WRITE_TO_ID => {
+            let bytes = _data.to_le_bytes();
+            unsafe {
+                *u8_ptr = bytes[0];
+            }
+            0
+        },
+        TraceReq::INQUIRE_CALL_TIME => {
+            use crate::task::TASK_MANAGER;
+            let inner= TASK_MANAGER.inner.exclusive_access();
+            let current_task = inner.current_task;
+            let tasks = &inner.tasks;
+            tasks[current_task].syscall_count[_id] as isize
+        },
+        _ => {
+            -1
+        }
+
+    }
 }

@@ -15,7 +15,7 @@
 mod context;
 
 use crate::syscall::syscall;
-use crate::task::{exit_current_and_run_next, suspend_current_and_run_next};
+use crate::task::{TASK_MANAGER, exit_current_and_run_next, suspend_current_and_run_next};
 use crate::timer::set_next_trigger;
 use core::arch::global_asm;
 use riscv::register::{
@@ -32,15 +32,25 @@ pub fn init() {
         fn __alltraps();
     }
     unsafe {
+
         stvec::write(__alltraps as usize, TrapMode::Direct);
     }
 }
 
 /// enable timer interrupt in supervisor mode
 pub fn enable_timer_interrupt() {
+    error!("timeI enabled!");
     unsafe {
         sie::set_stimer();
     }
+}
+
+fn increase_syscall_count(syscall_id: usize) {
+    let mut inner= TASK_MANAGER.inner.exclusive_access();
+    let current_task = inner.current_task;
+    let tasks = &mut inner.tasks;
+
+    tasks[current_task].syscall_count[syscall_id] += 1;
 }
 
 /// trap handler
@@ -51,10 +61,12 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
                                // trace!("into {:?}", scause.cause());
     match scause.cause() {
         Trap::Exception(Exception::UserEnvCall) => {
+            let syscall_id = cx.x[17];
+            increase_syscall_count(syscall_id);
             // jump to next instruction anyway
             cx.sepc += 4;
             // get system call return value
-            cx.x[10] = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
+            cx.x[10] = syscall(syscall_id, [cx.x[10], cx.x[11], cx.x[12]]) as usize;
         }
         Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
             println!("[kernel] PageFault in application, bad addr = {:#x}, bad instruction = {:#x}, kernel killed it.", stval, cx.sepc);

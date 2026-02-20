@@ -27,6 +27,12 @@ mod process;
 use fs::*;
 use process::*;
 
+/// dummy maxsize of a syscall
+pub const MAX_SYSCALL: usize = 512;
+
+/// counter for sys_trace
+pub type SyscallCount = [u64; MAX_SYSCALL];
+
 /// handle syscall exception with `syscall_id` and other arguments
 pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
     match syscall_id {

@@ -44,6 +44,16 @@ pub mod trap;
 core::arch::global_asm!(include_str!("entry.asm"));
 core::arch::global_asm!(include_str!("link_app.S"));
 
+use crate::timer::*;
+///test
+pub fn debug_timer() {
+    let start = get_time();
+    error!("start:{}",start);
+    for _ in 0..1000000 { unsafe { core::arch::asm!("nop"); } }
+    let end = get_time();
+    error!("end:{}",end);
+    // 此时再观察两者之差是否大于 0
+}
 /// clear BSS segment
 fn clear_bss() {
     extern "C" {
@@ -102,6 +112,7 @@ pub fn rust_main() -> ! {
     loader::load_apps();
     trap::enable_timer_interrupt();
     timer::set_next_trigger();
+    debug_timer();
     task::run_first_task();
     panic!("Unreachable in rust_main!");
 }
