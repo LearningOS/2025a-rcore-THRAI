@@ -113,6 +113,15 @@ impl VirtAddr {
     pub fn aligned(&self) -> bool {
         self.page_offset() == 0
     }
+    /// Check if the struct with given size cross page boundary
+    pub fn struct_cross_pages(&self, struct_size: usize) -> bool {
+        (self.0 % PAGE_SIZE) + struct_size > PAGE_SIZE
+    }
+
+    /// Check if the virtual address is unaligned with given align size
+    pub fn unaligned_with_size(&self, align_size: usize) -> bool {
+        self.0 % align_size != 0
+    }
 }
 impl From<VirtAddr> for VirtPageNum {
     fn from(v: VirtAddr) -> Self {
@@ -227,7 +236,23 @@ where
     pub fn get_end(&self) -> T {
         self.r
     }
+    pub fn intersects(&self, other: &Self) -> bool {
+        self.l < other.r && other.l < self.r
+    }
+    pub fn eq_end(&self, start: T, end: T) -> bool {
+        self.l == start && self.r == end
+    }
 }
+
+impl<T> PartialEq for SimpleRange<T>
+where
+    T: StepByOne + Copy + PartialEq + PartialOrd + Debug,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.l == other.l && self.r == other.r
+    }
+}
+
 impl<T> IntoIterator for SimpleRange<T>
 where
     T: StepByOne + Copy + PartialEq + PartialOrd + Debug,

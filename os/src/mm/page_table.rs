@@ -70,6 +70,27 @@ impl PageTableEntry {
     pub fn executable(&self) -> bool {
         (self.flags() & PTEFlags::X) != PTEFlags::empty()
     }
+    /// is user
+    pub fn is_user(&self) -> bool {
+        (self.flags() & PTEFlags::U) != PTEFlags::empty()
+    }
+    /// get page staring pa
+    pub fn page_start_address(&self) -> usize {
+        self.ppn().get_bytes_array().as_ptr() as usize
+    }
+
+    /// user r
+    pub fn is_user_readable(&self) -> bool {
+        self.is_user() && self.readable()
+    }
+    /// user w
+    pub fn is_user_writeable(&self) -> bool {
+        self.is_user() && self.writable()
+    }
+    /// user x
+    pub fn is_user_executable(&self) -> bool {
+        self.is_user() && self.executable()
+    }
 }
 
 /// page table structure
@@ -150,6 +171,16 @@ impl PageTable {
     /// get the page table entry from the virtual page number
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.find_pte(vpn).map(|pte| *pte)
+    }
+
+    /// translate the virtual address to page table entry, return None if not mapped
+    pub fn va_to_pte(&self, va: VirtAddr) -> Option<PageTableEntry> {
+        self.translate(va.floor())
+    }
+
+    /// translate va directly to pa
+    pub fn va_to_pa(&self, va: VirtAddr) -> Option<usize> {
+        self.translate(va.floor()).map(|pte| pte.page_start_address() + va.page_offset())
     }
     /// get the token from the page table
     pub fn token(&self) -> usize {
